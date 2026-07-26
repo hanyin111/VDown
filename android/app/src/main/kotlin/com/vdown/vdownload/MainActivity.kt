@@ -1,5 +1,6 @@
 package com.vdown.vdownload
 
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import com.yausername.ffmpeg.FFmpeg
@@ -66,6 +67,7 @@ class MainActivity : FlutterActivity() {
                     val url = call.argument<String>("url")
                     val format = call.argument<String>("format")
                     val audioOnly = call.argument<Boolean>("audioOnly") ?: false
+                    val withSubtitles = call.argument<Boolean>("withSubtitles") ?: false
                     val outputDir = call.argument<String>("outputDir")
                     val proxy = call.argument<String>("proxy")
                     if (taskId == null || url == null || format == null || outputDir == null) {
@@ -89,6 +91,11 @@ class MainActivity : FlutterActivity() {
                             } else {
                                 req.addOption("--merge-output-format", "mp4")
                             }
+                            if (withSubtitles) {
+                                req.addOption("--write-subs")
+                                req.addOption("--sub-langs", "all,-danmaku")
+                                req.addOption("--convert-subs", "srt")
+                            }
                             if (!proxy.isNullOrEmpty()) req.addOption("--proxy", proxy)
 
                             YoutubeDL.getInstance().execute(req, taskId) { progress, etaSeconds, line ->
@@ -108,6 +115,17 @@ class MainActivity : FlutterActivity() {
                         } catch (e: Throwable) {
                             post { result.error("DOWNLOAD", describe(e), null) }
                         }
+                    }
+                }
+
+                "openDownloads" -> {
+                    try {
+                        val intent = Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(intent)
+                        result.success(null)
+                    } catch (e: Throwable) {
+                        result.error("OPEN", describe(e), null)
                     }
                 }
 

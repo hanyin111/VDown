@@ -18,6 +18,7 @@ class DownloadSpec {
   final String url;
   final String formatSelector;
   final bool audioOnly;
+  final bool withSubtitles;
   final String outputDir;
 
   const DownloadSpec({
@@ -26,6 +27,7 @@ class DownloadSpec {
     required this.formatSelector,
     required this.audioOnly,
     required this.outputDir,
+    this.withSubtitles = false,
   });
 }
 
@@ -56,6 +58,9 @@ abstract class VideoEngine {
   Future<String> updateEngine() async {
     throw EngineException('当前平台请直接更新系统中的 yt-dlp（如 winget upgrade yt-dlp）');
   }
+
+  /// 打开系统的下载内容界面（仅 Android 实现，其余平台由调用方自行处理）。
+  Future<void> openDownloads() async {}
 }
 
 VideoEngine createEngine(SettingsService settings) {

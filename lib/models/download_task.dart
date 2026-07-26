@@ -13,6 +13,9 @@ class DownloadTask {
   /// 传给 yt-dlp -f 的格式选择器。
   final String formatSelector;
   final bool audioOnly;
+
+  /// 是否同时下载 CC 字幕（转为 SRT）。
+  final bool withSubtitles;
   final String outputDir;
 
   TaskStatus status;
@@ -32,6 +35,7 @@ class DownloadTask {
     required this.outputDir,
     this.thumbnail,
     this.audioOnly = false,
+    this.withSubtitles = false,
     this.status = TaskStatus.queued,
     this.progress = 0,
   });

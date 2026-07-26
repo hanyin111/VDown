@@ -91,6 +91,11 @@ class DesktopEngine extends VideoEngine {
         '-f', spec.formatSelector,
         '--merge-output-format', 'mp4',
       ],
+      if (spec.withSubtitles) ...[
+        '--write-subs',
+        '--sub-langs', 'all,-danmaku',
+        '--convert-subs', 'srt',
+      ],
       spec.url,
     ];
 

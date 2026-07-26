@@ -57,6 +57,7 @@ class DownloadManager extends ChangeNotifier {
           url: task.url,
           formatSelector: task.formatSelector,
           audioOnly: task.audioOnly,
+          withSubtitles: task.withSubtitles,
           outputDir: task.outputDir,
         ),
         (progress, eta, line) => _handleOutput(task, progress, eta, line),
@@ -136,11 +137,13 @@ class DownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 在系统文件管理器中打开任务所在目录（仅桌面端）。
+  /// 在系统文件管理器中打开任务所在目录。
   Future<void> revealInFolder(DownloadTask task) async {
     final target = task.outputFile;
     try {
-      if (Platform.isWindows) {
+      if (Platform.isAndroid) {
+        await engine.openDownloads();
+      } else if (Platform.isWindows) {
         if (target != null && File(target).existsSync()) {
           await Process.run('explorer', ['/select,', target]);
         } else {

@@ -48,6 +48,9 @@ class VideoInfo {
   final String? extractor;
   final List<VideoFormat> formats;
 
+  /// 可用的 CC 字幕语言（不含 B 站弹幕轨）。
+  final List<String> subtitleLangs;
+
   const VideoInfo({
     required this.id,
     required this.title,
@@ -57,10 +60,17 @@ class VideoInfo {
     this.durationSeconds,
     this.extractor,
     this.formats = const [],
+    this.subtitleLangs = const [],
   });
 
   factory VideoInfo.fromJson(Map<String, dynamic> json) {
     final rawFormats = (json['formats'] as List?) ?? const [];
+    final subs = (json['subtitles'] as Map?)
+            ?.keys
+            .map((k) => k.toString())
+            .where((k) => k != 'danmaku') // B 站弹幕不算字幕
+            .toList() ??
+        const <String>[];
     return VideoInfo(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '未命名视频',
@@ -74,6 +84,7 @@ class VideoInfo {
           .map(VideoFormat.fromJson)
           .where((f) => f.formatId.isNotEmpty)
           .toList(),
+      subtitleLangs: subs,
     );
   }
 

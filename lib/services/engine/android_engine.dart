@@ -81,6 +81,7 @@ class AndroidEngine extends VideoEngine {
         'url': spec.url,
         'format': spec.formatSelector,
         'audioOnly': spec.audioOnly,
+        'withSubtitles': spec.withSubtitles,
         'outputDir': spec.outputDir,
         'proxy': settings.proxy,
       });
@@ -94,6 +95,15 @@ class AndroidEngine extends VideoEngine {
   @override
   Future<void> cancel(String taskId) async {
     await _channel.invokeMethod('cancel', {'taskId': taskId});
+  }
+
+  @override
+  Future<void> openDownloads() async {
+    try {
+      await _channel.invokeMethod('openDownloads');
+    } on PlatformException {
+      // 个别 ROM 无下载管理界面，静默忽略。
+    }
   }
 
   @override

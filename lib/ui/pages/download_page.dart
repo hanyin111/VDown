@@ -28,6 +28,7 @@ class _DownloadPageState extends State<DownloadPage> {
   /// 选中的清晰度；null 表示"音频 MP3"。
   VideoFormat? _selected;
   bool _audioSelected = false;
+  bool _withSubs = false;
 
   @override
   void dispose() {
@@ -53,6 +54,7 @@ class _DownloadPageState extends State<DownloadPage> {
       _info = null;
       _selected = null;
       _audioSelected = false;
+      _withSubs = false;
     });
     try {
       final service = YtdlpService(context.read<VideoEngine>());
@@ -103,12 +105,16 @@ class _DownloadPageState extends State<DownloadPage> {
       formatSelector: selector,
       outputDir: settings.downloadDir,
       audioOnly: _audioSelected,
+      withSubtitles: _withSubs,
     ));
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('已加入下载队列：${info.title}'),
-      action: SnackBarAction(label: '查看任务', onPressed: widget.onGoToTasks),
-    ));
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text('已加入下载队列：${info.title}'),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(label: '查看任务', onPressed: widget.onGoToTasks),
+      ));
   }
 
   @override
@@ -240,6 +246,18 @@ class _DownloadPageState extends State<DownloadPage> {
             ),
           ],
         ),
+        if (info.subtitleLangs.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          FilterChip(
+            avatar: _withSubs
+                ? null
+                : Icon(Icons.subtitles_rounded,
+                    size: 18, color: scheme.onSurfaceVariant),
+            label: Text('同时下载 CC 字幕（${info.subtitleLangs.length} 种语言，SRT）'),
+            selected: _withSubs,
+            onSelected: (v) => setState(() => _withSubs = v),
+          ),
+        ],
         if (!_audioSelected && _selected != null) ...[
           const SizedBox(height: 12),
           Text(
