@@ -42,13 +42,16 @@ class _DownloadPageState extends State<DownloadPage> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim();
     if (text != null && text.isNotEmpty) {
-      _urlController.text = text;
+      // 分享文案自动提取其中的链接
+      _urlController.text = extractUrl(text) ?? text;
     }
   }
 
   Future<void> _parse() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) return;
+    final raw = _urlController.text.trim();
+    if (raw.isEmpty) return;
+    final url = extractUrl(raw) ?? raw;
+    if (url != raw) _urlController.text = url;
     FocusScope.of(context).unfocus();
     setState(() {
       _loading = true;

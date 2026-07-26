@@ -8,6 +8,13 @@ String formatDuration(int? seconds) {
   return h > 0 ? '$h:$m:$s' : '$m:$s';
 }
 
+/// 从任意文本中提取第一个 http(s) 链接。
+/// B 站等平台的分享文案通常是「【标题】 https://b23.tv/xxx 复制这段内容…」，
+/// 链接到空白或中文字符（含全角标点）为止。
+String? extractUrl(String text) {
+  return RegExp(r'https?://[^\s　-￿]+').firstMatch(text)?.group(0);
+}
+
 String formatBytes(int? bytes) {
   if (bytes == null || bytes <= 0) return '未知大小';
   const units = ['B', 'KB', 'MB', 'GB'];
