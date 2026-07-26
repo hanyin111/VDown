@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -108,13 +110,18 @@ class _DownloadPageState extends State<DownloadPage> {
       withSubtitles: _withSubs,
     ));
 
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text('已加入下载队列：${info.title}'),
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(label: '查看任务', onPressed: widget.onGoToTasks),
-      ));
+    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
+    final ctrl = messenger.showSnackBar(SnackBar(
+      content: Text('已加入下载队列：${info.title}'),
+      duration: const Duration(seconds: 3),
+      action: SnackBarAction(label: '查看任务', onPressed: widget.onGoToTasks),
+    ));
+    // 无障碍导航开启时，带 action 的 SnackBar 不会自动超时，手动定时关闭。
+    Timer(const Duration(milliseconds: 3200), () {
+      try {
+        ctrl.close();
+      } catch (_) {}
+    });
   }
 
   @override
