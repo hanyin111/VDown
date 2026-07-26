@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VDown · 全平台视频下载器</title>
+<meta name="description" content="免费开源的全平台视频下载器，支持 YouTube、Bilibili、X 等 1800+ 网站全分辨率下载。Windows 解压即用，Android 安装即用。">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #131314; --surf: #1e1f20; --surf2: #28292a;
+    --blue: #4285f4; --blue-deep: #0b57d0; --blue-lt: #a8c7fa;
+    --txt: #e3e3e3; --sub: #c4c7c5; --dim: #828583; --line: #3c4043;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--txt);
+    font-family: "HarmonyOS Sans SC", "MiSans", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* Hero */
+  header { text-align: center; padding: 88px 0 64px; }
+  .logo { width: 108px; height: 108px; border-radius: 24px; margin-bottom: 28px; }
+  h1 { font-size: 56px; font-weight: 700; letter-spacing: 1px; }
+  .tagline { font-size: 21px; color: var(--sub); margin: 10px 0 8px; }
+  .sites { font-size: 15px; color: var(--dim); margin-bottom: 40px; }
+  .btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 15px 34px; border-radius: 999px; font-size: 17px; font-weight: 600;
+    text-decoration: none; transition: transform .15s, box-shadow .15s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 4px 20px rgba(66,133,244,.35); }
+  .btn-tonal { background: #004a77; color: var(--blue-lt); }
+  .hint { font-size: 14px; color: var(--dim); margin-top: 18px; }
+
+  /* Chips */
+  .chips { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; padding-bottom: 56px; }
+  .chip {
+    background: #004a77; color: var(--blue-lt); font-size: 14.5px; font-weight: 600;
+    padding: 8px 18px; border-radius: 999px;
+  }
+
+  /* Screenshot */
+  .shot { padding-bottom: 72px; }
+  .shot img {
+    width: 100%; border-radius: 18px; border: 1px solid var(--line);
+    box-shadow: 0 24px 60px rgba(0,0,0,.5); display: block;
+  }
+  .shot p { text-align: center; color: var(--dim); font-size: 14px; margin-top: 14px; }
+
+  h2 { text-align: center; font-size: 34px; font-weight: 700; margin-bottom: 36px; }
+
+  /* Features */
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; padding-bottom: 80px; }
+  .card {
+    background: var(--surf); border-radius: 18px; padding: 26px 28px;
+    border-left: 5px solid var(--blue);
+  }
+  .card b { font-size: 19px; display: block; margin-bottom: 6px; }
+  .card span { color: var(--sub); font-size: 15px; }
+
+  /* Compare */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding-bottom: 80px; }
+  .col { border-radius: 20px; padding: 30px 34px; }
+  .col.others { background: var(--surf); color: var(--dim); }
+  .col.vdown { background: var(--blue-deep); color: #fff; }
+  .col h3 { text-align: center; font-size: 22px; margin-bottom: 20px; }
+  .col.others h3 { color: var(--dim); }
+  .col li { list-style: none; padding: 8px 0; font-size: 16px; }
+  .col.vdown li { font-weight: 600; }
+  .mark { display: inline-block; width: 28px; }
+
+  footer { border-top: 1px solid var(--surf2); text-align: center; padding: 36px 0 48px; color: var(--dim); font-size: 13.5px; }
+  footer a { color: var(--blue-lt); text-decoration: none; }
+
+  @media (max-width: 720px) {
+    h1 { font-size: 42px; }
+    header { padding: 56px 0 44px; }
+    .compare { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <img class="logo" src="icon.png" alt="VDown">
+  <h1>VDown</h1>
+  <p class="tagline">全平台视频下载器 · 免费开源</p>
+  <p class="sites">支持 YouTube · Bilibili · X（Twitter）等 1800+ 网站</p>
+  <div class="btns">
+    <a class="btn btn-primary" href="https://github.com/hanyin111/VDown/releases/latest">⬇ Windows 下载</a>
+    <a class="btn btn-tonal" href="https://github.com/hanyin111/VDown/releases/latest">🤖 Android 下载</a>
+  </div>
+  <p class="hint">Windows 解压即用 · Android 安装即用，无需任何额外依赖</p>
+</header>
+
+<div class="wrap chips">
+  <span class="chip">4K / 8K 全分辨率</span>
+  <span class="chip">CC 字幕下载</span>
+  <span class="chip">MP3 音频提取</span>
+  <span class="chip">断点续传</span>
+  <span class="chip">深色模式</span>
+</div>
+
+<section class="wrap shot">
+  <img src="screenshot.png" alt="VDown 界面截图">
+  <p>Material 3 · 谷歌设计规范 · 深浅色主题自适应</p>
+</section>
+
+<section class="wrap">
+  <h2>为什么选 VDown</h2>
+  <div class="features">
+    <div class="card"><b>开箱即用</b><span>Windows 完整版解压即用，安卓内置下载引擎，装上就能下</span></div>
+    <div class="card"><b>一套代码 · 全平台</b><span>Flutter 原生构建，桌面与手机体验一致，唯一双端覆盖的开源方案</span></div>
+    <div class="card"><b>轻量原生</b><span>非 Electron 套壳，Windows 精简版仅 28MB，内存占用小</span></div>
+    <div class="card"><b>引擎在线更新</b><span>网站接口变动时一键更新 yt-dlp 内核，不用等新版本</span></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>一目了然的差距</h2>
+  <div class="compare">
+    <div class="col others">
+      <h3>其他工具</h3>
+      <ul>
+        <li><span class="mark">✕</span>命令行 / 过时界面</li>
+        <li><span class="mark">✕</span>内存占用 300MB+</li>
+        <li><span class="mark">✕</span>收费或功能阉割</li>
+        <li><span class="mark">✕</span>桌面手机各找一套</li>
+      </ul>
+    </div>
+    <div class="col vdown">
+      <h3>VDown</h3>
+      <ul>
+        <li><span class="mark">✓</span>Material 3 现代界面</li>
+        <li><span class="mark">✓</span>原生轻量 28MB 起</li>
+        <li><span class="mark">✓</span>完全免费开源</li>
+        <li><span class="mark">✓</span>桌面手机一套搞定</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p><a href="https://github.com/hanyin111/VDown">GitHub 仓库</a> · 基于 Flutter 与 yt-dlp 构建</p>
+  <p>请仅下载您拥有权利或获得授权的内容，遵守目标网站服务条款及当地法律法规</p>
+</footer>
+
+</body>
+</html>
