@@ -12,6 +12,8 @@ import java.io.File
 import java.util.concurrent.Executors
 
 // 通过 MethodChannel 将内置 youtubedl-android 引擎暴露给 Flutter 侧。
+// 注意统一捕获 Throwable：引擎初始化失败可能抛 Error（如 UnsatisfiedLinkError、
+// NoClassDefFoundError），只捕 Exception 会导致应用闪退。
 class MainActivity : FlutterActivity() {
     private val executor = Executors.newFixedThreadPool(4)
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -31,8 +33,8 @@ class MainActivity : FlutterActivity() {
                         ensureInit()
                         val v = YoutubeDL.getInstance().version(applicationContext) ?: "unknown"
                         post { result.success(v) }
-                    } catch (e: Exception) {
-                        post { result.error("INIT", e.message ?: e.toString(), null) }
+                    } catch (e: Throwable) {
+                        post { result.error("INIT", describe(e), null) }
                     }
                 }
 
@@ -53,8 +55,8 @@ class MainActivity : FlutterActivity() {
                             if (!proxy.isNullOrEmpty()) req.addOption("--proxy", proxy)
                             val resp = YoutubeDL.getInstance().execute(req)
                             post { result.success(resp.out) }
-                        } catch (e: Exception) {
-                            post { result.error("FETCH", e.message ?: e.toString(), null) }
+                        } catch (e: Throwable) {
+                            post { result.error("FETCH", describe(e), null) }
                         }
                     }
                 }
@@ -103,8 +105,8 @@ class MainActivity : FlutterActivity() {
                                 }
                             }
                             post { result.success(null) }
-                        } catch (e: Exception) {
-                            post { result.error("DOWNLOAD", e.message ?: e.toString(), null) }
+                        } catch (e: Throwable) {
+                            post { result.error("DOWNLOAD", describe(e), null) }
                         }
                     }
                 }
@@ -112,7 +114,12 @@ class MainActivity : FlutterActivity() {
                 "cancel" -> {
                     val taskId = call.argument<String>("taskId")
                     if (taskId != null) {
-                        executor.execute { YoutubeDL.getInstance().destroyProcessById(taskId) }
+                        executor.execute {
+                            try {
+                                YoutubeDL.getInstance().destroyProcessById(taskId)
+                            } catch (_: Throwable) {
+                            }
+                        }
                     }
                     result.success(null)
                 }
@@ -131,6 +138,21 @@ class MainActivity : FlutterActivity() {
                     FFmpeg.getInstance().init(application)
                     initialized = true
                 }
+            }
+        }
+    }
+
+    // 带异常类名与根因的错误描述，便于在界面上定位问题。
+    private fun describe(e: Throwable): String {
+        val root = generateSequence(e) { it.cause }.last()
+        val msg = e.message ?: ""
+        val rootMsg = root.message ?: ""
+        return buildString {
+            append(e.javaClass.simpleName)
+            if (msg.isNotEmpty()) append(": ").append(msg)
+            if (root !== e) {
+                append(" <- ").append(root.javaClass.simpleName)
+                if (rootMsg.isNotEmpty()) append(": ").append(rootMsg)
             }
         }
     }

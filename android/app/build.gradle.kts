@@ -36,6 +36,10 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // youtubedl-android 大量使用反射（Jackson / commons-compress），
+            // R8 裁剪会在运行时抛 NoClassDefFoundError 导致闪退，故关闭混淆与资源裁剪。
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
