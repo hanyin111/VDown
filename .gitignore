@@ -1,0 +1,18 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# 平台工程由 flutter create 生成，如需定制可移除下列忽略
+# windows/
+# macos/
+# linux/
+# android/
+
+# IDE
+.idea/
+.vscode/
+*.iml
