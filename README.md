@@ -38,6 +38,14 @@
   winget install yt-dlp.yt-dlp Gyan.FFmpeg
   ```
 - **Android**：下载 `VDown-*-arm64-v8a.apk`（现代手机）直接安装，首次使用建议到「设置 → 更新 yt-dlp 内核」更新一次
+- **Linux**：下载 `VDown-*-linux-x64.tar.gz`（由 GitHub Actions 云端构建），解压后运行 `VDown/vdownload`，并安装引擎：
+  ```bash
+  sudo apt install yt-dlp ffmpeg   # Debian/Ubuntu（或用 pipx install yt-dlp 获取最新版）
+  ```
+- **macOS**：下载 `VDown-*-macos.zip`（云端构建，未签名，首次打开需右键 →「打开」），并安装引擎：
+  ```bash
+  brew install yt-dlp ffmpeg
+  ```
 
 ## 从源码构建
 
@@ -50,9 +58,14 @@
 
 ```bash
 flutter pub get
-flutter build windows          # Windows 桌面版
+flutter build windows          # Windows 桌面版（需在 Windows 上）
 flutter build apk --release --split-per-abi   # Android（Gradle/Maven 已配置国内镜像）
+flutter build linux            # Linux（需在 Linux 上，先装 ninja-build libgtk-3-dev）
+flutter build macos            # macOS（需在 macOS 上，先装 Xcode）
 ```
+
+> Flutter 不支持跨平台编译（Linux 版必须在 Linux 上构建，macOS 同理）。
+> 本仓库已配置 GitHub Actions：推送 `v*` 标签会自动在云端构建 Windows / Linux / macOS 三端并附加到对应 Release。
 
 ## 架构
 
