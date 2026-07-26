@@ -5,7 +5,7 @@ import '../settings_service.dart';
 import 'video_engine.dart';
 
 /// 桌面端引擎：调用本机 yt-dlp 可执行文件。
-class DesktopEngine implements VideoEngine {
+class DesktopEngine extends VideoEngine {
   final SettingsService settings;
   final Map<String, Process> _processes = {};
 

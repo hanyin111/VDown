@@ -111,6 +111,18 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "update" -> executor.execute {
+                    try {
+                        ensureInit()
+                        val status = YoutubeDL.getInstance()
+                            .updateYoutubeDL(application, YoutubeDL.UpdateChannel.STABLE)
+                        val v = YoutubeDL.getInstance().version(applicationContext) ?: ""
+                        post { result.success("${status?.name ?: "UNKNOWN"}|$v") }
+                    } catch (e: Throwable) {
+                        post { result.error("UPDATE", describe(e), null) }
+                    }
+                }
+
                 "cancel" -> {
                     val taskId = call.argument<String>("taskId")
                     if (taskId != null) {

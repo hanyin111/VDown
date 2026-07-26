@@ -7,7 +7,7 @@ import 'video_engine.dart';
 
 /// Android 端引擎：通过平台通道桥接内置的 youtubedl-android（yt-dlp 移植）。
 /// 引擎随 APK 打包，开箱即用，无需任何外部依赖。
-class AndroidEngine implements VideoEngine {
+class AndroidEngine extends VideoEngine {
   static const _channel = MethodChannel('vdown/engine');
 
   final SettingsService settings;
@@ -65,7 +65,8 @@ class AndroidEngine implements VideoEngine {
       }
       return json;
     } on PlatformException catch (e) {
-      throw EngineException('解析失败：${_lastLine(e.message)}');
+      throw EngineException('解析失败：${_lastLine(e.message)}\n'
+          '提示：可先到「设置 → 更新 yt-dlp 内核」后重试');
     } on FormatException {
       throw EngineException('解析失败：引擎返回了无法识别的数据。');
     }
@@ -93,6 +94,27 @@ class AndroidEngine implements VideoEngine {
   @override
   Future<void> cancel(String taskId) async {
     await _channel.invokeMethod('cancel', {'taskId': taskId});
+  }
+
+  @override
+  Future<String> updateEngine() async {
+    try {
+      final out = await _channel.invokeMethod<String>('update') ?? '|';
+      final parts = out.split('|');
+      final status = parts.first;
+      final version = parts.length > 1 ? parts[1] : '';
+      switch (status) {
+        case 'DONE':
+          return '内核已更新到 $version';
+        case 'ALREADY_UP_TO_DATE':
+          return '已是最新版本（$version）';
+        default:
+          return '更新完成：$status $version';
+      }
+    } on PlatformException catch (e) {
+      throw EngineException('更新失败：${_lastLine(e.message)}\n'
+          '（更新需访问 GitHub，请确认手机代理已开启）');
+    }
   }
 
   static String _lastLine(String? message) {

@@ -51,6 +51,11 @@ abstract class VideoEngine {
 
   /// 引擎是否内置（内置则无需在设置中配置路径）。
   bool get isBundled;
+
+  /// 更新内置 yt-dlp 内核（仅内置引擎支持），返回结果描述。
+  Future<String> updateEngine() async {
+    throw EngineException('当前平台请直接更新系统中的 yt-dlp（如 winget upgrade yt-dlp）');
+  }
 }
 
 VideoEngine createEngine(SettingsService settings) {

@@ -153,12 +153,34 @@ class SettingsPage extends StatelessWidget {
                 onSave: settings.setFfmpegPath,
               ),
             ),
-          ] else
+          ] else ...[
             const ListTile(
               leading: Icon(Icons.offline_bolt_rounded),
               title: Text('内置引擎'),
               subtitle: Text('yt-dlp 与 FFmpeg 已随应用打包，无需配置'),
             ),
+            ListTile(
+              leading: const Icon(Icons.system_update_rounded),
+              title: const Text('更新 yt-dlp 内核'),
+              subtitle: const Text('解析或下载失败时先更新（需可访问 GitHub）'),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final engine = context.read<VideoEngine>();
+                messenger.showSnackBar(const SnackBar(
+                  content: Text('正在更新内核，可能需要一两分钟…'),
+                  duration: Duration(seconds: 60),
+                ));
+                try {
+                  final msg = await engine.updateEngine();
+                  messenger.hideCurrentSnackBar();
+                  messenger.showSnackBar(SnackBar(content: Text(msg)));
+                } catch (e) {
+                  messenger.hideCurrentSnackBar();
+                  messenger.showSnackBar(SnackBar(content: Text('$e')));
+                }
+              },
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.health_and_safety_rounded),
             title: const Text('检查引擎状态'),
