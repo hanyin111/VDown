@@ -4,7 +4,8 @@ import 'dart:io';
 import '../settings_service.dart';
 import 'video_engine.dart';
 
-/// 桌面端引擎：调用本机 yt-dlp 可执行文件。
+/// 桌面端引擎：调用 yt-dlp 可执行文件。
+/// 优先级：设置中手动指定的路径 > 程序目录 bin/ 下随附的二进制 > 系统 PATH。
 class DesktopEngine extends VideoEngine {
   final SettingsService settings;
   final Map<String, Process> _processes = {};
@@ -12,13 +13,41 @@ class DesktopEngine extends VideoEngine {
   DesktopEngine(this.settings);
 
   @override
-  bool get isBundled => false;
+  bool get isBundled => _bundledYtdlp() != null;
+
+  static String get _binDir =>
+      '${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}bin';
+
+  static String? _bundledYtdlp() {
+    final exe = Platform.isWindows ? 'yt-dlp.exe' : 'yt-dlp';
+    final path = '$_binDir${Platform.pathSeparator}$exe';
+    return File(path).existsSync() ? path : null;
+  }
+
+  static String? _bundledFfmpegDir() {
+    final exe = Platform.isWindows ? 'ffmpeg.exe' : 'ffmpeg';
+    return File('$_binDir${Platform.pathSeparator}$exe').existsSync()
+        ? _binDir
+        : null;
+  }
+
+  /// 实际调用的 yt-dlp 路径。
+  String get _ytdlp {
+    if (settings.ytdlpPath != 'yt-dlp') return settings.ytdlpPath;
+    return _bundledYtdlp() ?? settings.ytdlpPath;
+  }
+
+  /// 实际使用的 FFmpeg 目录（null 表示交给 yt-dlp 从 PATH 找）。
+  String? get _ffmpegDir {
+    if (settings.ffmpegPath.isNotEmpty) return settings.ffmpegPath;
+    return _bundledFfmpegDir();
+  }
 
   @override
   Future<String> version() async {
     try {
       final result = await Process.run(
-        settings.ytdlpPath,
+        _ytdlp,
         ['--version'],
         stdoutEncoding: utf8,
         stderrEncoding: utf8,
@@ -43,7 +72,7 @@ class DesktopEngine extends VideoEngine {
     final ProcessResult result;
     try {
       result = await Process.run(
-        settings.ytdlpPath,
+        _ytdlp,
         args,
         stdoutEncoding: utf8,
         stderrEncoding: utf8,
@@ -80,8 +109,8 @@ class DesktopEngine extends VideoEngine {
       '--continue',
       '-o', outputTemplate,
       ...settings.commonNetworkArgs,
-      if (settings.ffmpegPath.isNotEmpty) ...[
-        '--ffmpeg-location', settings.ffmpegPath,
+      if (_ffmpegDir != null) ...[
+        '--ffmpeg-location', _ffmpegDir!,
       ],
       if (spec.audioOnly) ...[
         '-f', spec.formatSelector,
@@ -101,7 +130,7 @@ class DesktopEngine extends VideoEngine {
 
     final Process process;
     try {
-      process = await Process.start(settings.ytdlpPath, args);
+      process = await Process.start(_ytdlp, args);
     } on ProcessException {
       throw EngineException('无法启动 yt-dlp，请检查设置中的引擎路径。');
     }
