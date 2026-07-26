@@ -32,11 +32,12 @@
 
 前往 [Releases](../../releases) 页面：
 
-- **Windows**：下载 `VDown-windows-x64.zip`，解压后运行 `vdownload.exe`；另需安装引擎：
+- **Windows（推荐）**：下载 `VDown-*-windows-x64-full.zip` 完整版，解压运行 `vdownload.exe` 即可，**无需安装任何依赖**
+- **Windows 精简版**：下载 `VDown-*-windows-x64.zip`，需自行安装引擎：
   ```powershell
   winget install yt-dlp.yt-dlp Gyan.FFmpeg
   ```
-- **Android**：下载 `VDown-arm64-v8a.apk`（现代手机）直接安装，无需其他依赖
+- **Android**：下载 `VDown-*-arm64-v8a.apk`（现代手机）直接安装，首次使用建议到「设置 → 更新 yt-dlp 内核」更新一次
 
 ## 从源码构建
 
