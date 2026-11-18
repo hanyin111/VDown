@@ -12,7 +12,7 @@ class EngineException implements Exception {
   String toString() => message;
 }
 
-/// 一次下载所需的全部参数。
+/// 一次下载或直播录制所需的全部参数。
 class DownloadSpec {
   final String taskId;
   final String url;
@@ -20,6 +20,10 @@ class DownloadSpec {
   final bool audioOnly;
   final bool withSubtitles;
   final String outputDir;
+  final bool isLive;
+  final bool liveFromStart;
+  final int? maxDurationSeconds;
+  final String? title;
 
   const DownloadSpec({
     required this.taskId,
@@ -28,6 +32,10 @@ class DownloadSpec {
     required this.audioOnly,
     required this.outputDir,
     this.withSubtitles = false,
+    this.isLive = false,
+    this.liveFromStart = false,
+    this.maxDurationSeconds,
+    this.title,
   });
 }
 
@@ -37,7 +45,7 @@ typedef EngineOutputCallback = void Function(
     double? progress, String? etaText, String line);
 
 /// 视频解析 / 下载引擎的平台无关接口。
-/// 桌面端调用本机 yt-dlp 进程；Android 端桥接内置的 youtubedl-android。
+/// 桌面端调用本机 yt-dlp / FFmpeg 进程；Android 端桥接内置的 youtubedl-android。
 abstract class VideoEngine {
   /// 引擎版本号；不可用时抛出 [EngineException]。
   Future<String> version();
@@ -45,11 +53,18 @@ abstract class VideoEngine {
   /// 解析视频信息，返回 yt-dlp -J 的 JSON。
   Future<Map<String, dynamic>> fetchInfoJson(String url);
 
-  /// 执行下载，正常完成即成功；失败抛出 [EngineException]。
+  /// 执行下载或直播实时录制，正常完成即成功；失败抛出 [EngineException]。
   Future<void> download(DownloadSpec spec, EngineOutputCallback onOutput);
 
   /// 取消正在进行的下载。
   Future<void> cancel(String taskId);
+
+  /// 停止直播录制并保存当前已录制内容为可播放视频。
+  Future<void> stopAndSave(String taskId) => cancel(taskId);
+
+  /// 直播录制中：在当前时间戳断点保存一段可播放视频并继续录制下一段。
+  /// 返回保存的文件路径，不支持时返回 null。
+  Future<String?> splitCheckpoint(String taskId) async => null;
 
   /// 引擎是否内置（内置则无需在设置中配置路径）。
   bool get isBundled;

@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "VDown 视频与直播下载模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "VDown 全平台视频与直播实时录制器"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "VDown"
+    }
+  ]
+}

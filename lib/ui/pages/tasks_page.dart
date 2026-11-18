@@ -88,13 +88,43 @@ class _TaskCard extends StatelessWidget {
               child: SizedBox(
                 width: 112,
                 height: 63,
-                child: task.thumbnail != null
-                    ? Image.network(
-                        task.thumbnail!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholder(scheme),
-                      )
-                    : _placeholder(scheme),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    task.thumbnail != null
+                        ? Image.network(
+                            task.thumbnail!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _placeholder(scheme),
+                          )
+                        : _placeholder(scheme),
+                    if (task.isLive)
+                      Positioned(
+                        left: 4,
+                        top: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: task.status == TaskStatus.recording
+                                ? scheme.error
+                                : scheme.secondary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: task.status == TaskStatus.recording
+                                  ? scheme.onError
+                                  : scheme.onSecondary,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -113,13 +143,28 @@ class _TaskCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   _buildStatusLine(context),
+                  if (task.savedFiles.isNotEmpty &&
+                      task.status == TaskStatus.recording) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '已断点保存 ${task.savedFiles.length} 个可播放片段',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: scheme.primary),
+                    ),
+                  ],
                   if (task.status == TaskStatus.running ||
-                      task.status == TaskStatus.merging) ...[
+                      task.status == TaskStatus.recording ||
+                      task.status == TaskStatus.merging ||
+                      task.status == TaskStatus.finalizing) ...[
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: task.status == TaskStatus.merging
+                        value: (task.status == TaskStatus.merging ||
+                                task.status == TaskStatus.recording ||
+                                task.status == TaskStatus.finalizing)
                             ? null
                             : task.progress,
                         minHeight: 6,
@@ -130,7 +175,7 @@ class _TaskCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            ..._buildActions(manager),
+            ..._buildActions(context, manager),
           ],
         ),
       ),
@@ -162,13 +207,33 @@ class _TaskCard extends StatelessWidget {
           if (task.eta != null) '剩余 ${task.eta}',
         ];
         return Text(parts.join(' · '), style: style);
+      case TaskStatus.recording:
+        final parts = [
+          task.qualityLabel,
+          if (task.segmentIndex > 1) '第 ${task.segmentIndex} 段',
+          '已录 ${task.recordedDuration ?? '00:00:00'}',
+          if (task.recordedSize != null) task.recordedSize!,
+          if (task.bitrate != null) task.bitrate!,
+          if (task.speed != null) task.speed!,
+        ];
+        return Text(parts.join(' · '), style: style);
       case TaskStatus.merging:
         return Text('${task.qualityLabel} · 正在合并音视频…', style: style);
+      case TaskStatus.finalizing:
+        return Text('${task.qualityLabel} · 正在封装为可播放视频…', style: style);
       case TaskStatus.done:
         return Row(children: [
           Icon(Icons.check_circle_rounded, size: 16, color: scheme.primary),
           const SizedBox(width: 4),
-          Text('${task.qualityLabel} · 已完成', style: style),
+          Flexible(
+            child: Text(
+              task.savedFiles.length > 1
+                  ? '${task.qualityLabel} · 已保存 ${task.savedFiles.length} 个视频'
+                  : '${task.qualityLabel} · 已完成',
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
         ]);
       case TaskStatus.error:
         return Text(
@@ -182,8 +247,38 @@ class _TaskCard extends StatelessWidget {
     }
   }
 
-  List<Widget> _buildActions(DownloadManager manager) {
+  List<Widget> _buildActions(BuildContext context, DownloadManager manager) {
     switch (task.status) {
+      case TaskStatus.recording:
+        return [
+          IconButton(
+            tooltip: '断点保存片段（继续录制）',
+            icon: const Icon(Icons.bookmark_add_rounded),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final saved = await manager.splitCheckpoint(task);
+              if (saved != null && context.mounted) {
+                messenger.showSnackBar(SnackBar(
+                  content: Text('已断点保存可播放片段：$saved'),
+                  duration: const Duration(seconds: 3),
+                ));
+              }
+            },
+          ),
+          FilledButton.tonalIcon(
+            onPressed: () => manager.stopAndSave(task),
+            icon: const Icon(Icons.stop_circle_rounded, size: 18),
+            label: const Text('停止并保存'),
+          ),
+        ];
+      case TaskStatus.finalizing:
+        return [
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ];
       case TaskStatus.queued:
       case TaskStatus.running:
       case TaskStatus.merging:

@@ -11,6 +11,7 @@ import '../../services/engine/video_engine.dart';
 import '../../services/settings_service.dart';
 import '../../services/ytdlp_service.dart';
 import '../../utils/format_utils.dart';
+import '../widgets/bili_login_dialog.dart';
 
 class DownloadPage extends StatefulWidget {
   final VoidCallback onGoToTasks;
@@ -31,6 +32,10 @@ class _DownloadPageState extends State<DownloadPage> {
   VideoFormat? _selected;
   bool _audioSelected = false;
   bool _withSubs = false;
+  bool _liveFromStart = false;
+
+  /// null 表示手动停止（支持任意时间戳断点保存）；正整数表示定时上限（秒）。
+  int? _liveDurationLimitSec;
 
   @override
   void dispose() {
@@ -60,6 +65,8 @@ class _DownloadPageState extends State<DownloadPage> {
       _selected = null;
       _audioSelected = false;
       _withSubs = false;
+      _liveFromStart = false;
+      _liveDurationLimitSec = null;
     });
     try {
       final service = YtdlpService(context.read<VideoEngine>());
@@ -81,6 +88,24 @@ class _DownloadPageState extends State<DownloadPage> {
     }
   }
 
+  static String? _biliLiveYtdlpAlias(String formatId) {
+    if (formatId.startsWith('30000_')) return 'dolby';
+    if (formatId.startsWith('20000_')) return '4K';
+    if (formatId.startsWith('10000_')) return 'source';
+    if (formatId.startsWith('400_')) return 'blue_ray';
+    if (formatId.startsWith('250_')) return 'ultra_high_res';
+    if (formatId.startsWith('150_')) return 'high_res';
+    if (formatId.startsWith('80_')) return 'low';
+    return null;
+  }
+
+  Future<void> _promptBiliLoginAndReparse() async {
+    final ok = await BiliLoginDialog.show(context);
+    if (ok && mounted) {
+      await _parse();
+    }
+  }
+
   void _startDownload() {
     final info = _info;
     if (info == null) return;
@@ -91,31 +116,47 @@ class _DownloadPageState extends State<DownloadPage> {
     final String label;
     if (_audioSelected || _selected == null) {
       selector = 'bestaudio/best';
-      label = '音频 · MP3';
+      label = info.isLive ? '直播音频 · MP3' : '音频 · MP3';
     } else {
       final f = _selected!;
-      // 无内置音轨时与最佳音轨合并（B 站 / YouTube 高清流均为分离音视频）。
-      selector = f.hasAudio
-          ? '${f.formatId}/best'
-          : '${f.formatId}+bestaudio/${f.formatId}/best';
-      label = '${f.height}P${(f.fps ?? 0) > 40 ? '${f.fps!.round()}' : ''} · MP4';
+      // 若平台存在独立音轨（如 YouTube / B站点播），无内嵌音频的流需合并 bestaudio；
+      // B 站直播等合流（无独立 audio-only 格式）直接取该格式即可，避免多余回退。
+      final needsBestAudio = !f.hasAudio && info.hasSeparateAudioFormats;
+      final biliAlias = _biliLiveYtdlpAlias(f.formatId);
+      selector = needsBestAudio
+          ? '${f.formatId}+bestaudio/${f.formatId}/best'
+          : (biliAlias != null
+              ? '${f.formatId}/$biliAlias/best'
+              : '${f.formatId}/best');
+      label = info.isLive
+          ? '直播 ${f.displayLabel} · MP4'
+          : '${f.displayLabel} · MP4';
     }
 
     manager.enqueue(DownloadTask(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      url: info.webpageUrl.isNotEmpty ? info.webpageUrl : _urlController.text.trim(),
+      url: info.webpageUrl.isNotEmpty
+          ? info.webpageUrl
+          : _urlController.text.trim(),
       title: info.title,
       thumbnail: info.thumbnail,
       qualityLabel: label,
       formatSelector: selector,
       outputDir: settings.downloadDir,
       audioOnly: _audioSelected,
-      withSubtitles: _withSubs,
+      withSubtitles: !info.isLive && _withSubs,
+      isLive: info.isLive,
+      liveFromStart: info.isLive && info.isYouTube && _liveFromStart,
+      maxDurationSeconds: info.isLive ? _liveDurationLimitSec : null,
     ));
 
     final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
     final ctrl = messenger.showSnackBar(SnackBar(
-      content: Text('已加入下载队列：${info.title}'),
+      content: Text(
+        info.isLive
+            ? '已开始实时录制直播：${info.title}'
+            : '已加入下载队列：${info.title}',
+      ),
       duration: const Duration(seconds: 3),
       action: SnackBarAction(label: '查看任务', onPressed: widget.onGoToTasks),
     ));
@@ -152,7 +193,7 @@ class _DownloadPageState extends State<DownloadPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '支持 YouTube · Bilibili · X（Twitter）等 1800+ 网站',
+              '支持 YouTube · Bilibili（含直播实时录制与任意时间戳断点保存）等 1800+ 网站',
               textAlign: TextAlign.center,
               style: Theme.of(context)
                   .textTheme
@@ -199,16 +240,53 @@ class _DownloadPageState extends State<DownloadPage> {
             if (_error != null) _ErrorCard(message: _error!),
             if (_info != null) ...[
               _VideoInfoCard(info: _info!),
+              if (_info!.biliAuthLimited) ...[
+                const SizedBox(height: 16),
+                Card(
+                  color: scheme.secondaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.hd_rounded,
+                            color: scheme.onSecondaryContainer),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '当前未登录 B 站账号，服务端限制最高返回 720P；扫码登录后可解锁 1080P 原画 / 蓝光 / 2K。',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: scheme.onSecondaryContainer),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.tonal(
+                          onPressed: _promptBiliLoginAndReparse,
+                          child: const Text('扫码登录'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               _buildQualitySelector(),
+              if (_info!.isLive) ...[
+                const SizedBox(height: 20),
+                _buildLiveOptions(),
+              ],
               const SizedBox(height: 24),
               FilledButton.tonalIcon(
                 onPressed: _startDownload,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                 ),
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('开始下载'),
+                icon: Icon(_info!.isLive
+                    ? Icons.fiber_manual_record_rounded
+                    : Icons.download_rounded),
+                label: Text(_info!.isLive ? '开始实时录制（支持任意时刻断点保存）' : '开始下载'),
               ),
             ],
           ],
@@ -224,7 +302,7 @@ class _DownloadPageState extends State<DownloadPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('选择清晰度',
+        Text(info.isLive ? '选择直播画质' : '选择清晰度',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -236,9 +314,7 @@ class _DownloadPageState extends State<DownloadPage> {
           children: [
             for (final f in qualities)
               ChoiceChip(
-                label: Text(
-                  '${f.height}P${(f.fps ?? 0) > 40 ? ' ${f.fps!.round()}fps' : ''}',
-                ),
+                label: Text(f.displayLabel),
                 selected: !_audioSelected && _selected?.formatId == f.formatId,
                 onSelected: (_) => setState(() {
                   _selected = f;
@@ -256,7 +332,7 @@ class _DownloadPageState extends State<DownloadPage> {
             ),
           ],
         ),
-        if (info.subtitleLangs.isNotEmpty) ...[
+        if (!info.isLive && info.subtitleLangs.isNotEmpty) ...[
           const SizedBox(height: 12),
           FilterChip(
             avatar: _withSubs
@@ -271,7 +347,9 @@ class _DownloadPageState extends State<DownloadPage> {
         if (!_audioSelected && _selected != null) ...[
           const SizedBox(height: 12),
           Text(
-            '格式 ${_selected!.ext.toUpperCase()} · 编码 ${_selected!.vcodec ?? '未知'} · ${formatBytes(_selected!.filesize)}',
+            info.isLive
+                ? '格式 ${_selected!.ext.toUpperCase()} · 编码 ${_selected!.vcodec ?? '未知'} · 实时封装为可播放 MP4'
+                : '格式 ${_selected!.ext.toUpperCase()} · 编码 ${_selected!.vcodec ?? '未知'} · ${formatBytes(_selected!.filesize)}',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
@@ -279,6 +357,83 @@ class _DownloadPageState extends State<DownloadPage> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildLiveOptions() {
+    final info = _info!;
+    final scheme = Theme.of(context).colorScheme;
+    const durationOptions = <(int?, String)>[
+      (null, '手动停止（任意时刻断点保存）'),
+      (1800, '30 分钟'),
+      (3600, '1 小时'),
+      (7200, '2 小时'),
+    ];
+
+    return Card.outlined(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sensors_rounded, size: 20, color: scheme.error),
+                const SizedBox(width: 8),
+                Text(
+                  '直播实时录制设置',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '录制过程采用碎片化实时写入，在任务页可随时点击「断点保存」切分片段，或「停止并保存」生成标准可播放 MP4。',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '录制时长上限',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final opt in durationOptions)
+                  ChoiceChip(
+                    label: Text(opt.$2),
+                    selected: _liveDurationLimitSec == opt.$1,
+                    onSelected: (_) =>
+                        setState(() => _liveDurationLimitSec = opt.$1),
+                  ),
+              ],
+            ),
+            if (info.isYouTube) ...[
+              const SizedBox(height: 10),
+              FilterChip(
+                avatar: _liveFromStart
+                    ? null
+                    : Icon(Icons.history_rounded,
+                        size: 18, color: scheme.onSurfaceVariant),
+                label: const Text('尝试从直播开头回溯录制（YouTube DVR）'),
+                selected: _liveFromStart,
+                onSelected: (v) => setState(() => _liveFromStart = v),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -303,13 +458,39 @@ class _VideoInfoCard extends StatelessWidget {
               child: SizedBox(
                 width: 160,
                 height: 90,
-                child: info.thumbnail != null
-                    ? Image.network(
-                        info.thumbnail!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholder(scheme),
-                      )
-                    : _placeholder(scheme),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    info.thumbnail != null
+                        ? Image.network(
+                            info.thumbnail!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _placeholder(scheme),
+                          )
+                        : _placeholder(scheme),
+                    if (info.isLive)
+                      Positioned(
+                        left: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: scheme.error,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'LIVE 直播中',
+                            style: TextStyle(
+                              color: scheme.onError,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -330,7 +511,7 @@ class _VideoInfoCard extends StatelessWidget {
                   Text(
                     [
                       if (info.uploader != null) info.uploader!,
-                      formatDuration(info.durationSeconds),
+                      info.isLive ? '实时直播' : formatDuration(info.durationSeconds),
                       if (info.extractor != null) info.extractor!,
                     ].join(' · '),
                     style: Theme.of(context)

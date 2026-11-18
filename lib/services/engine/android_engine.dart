@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import '../bilibili_live_service.dart';
 import '../settings_service.dart';
 import 'video_engine.dart';
 
@@ -39,7 +40,9 @@ class AndroidEngine extends VideoEngine {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
     final s = (seconds % 60).toString().padLeft(2, '0');
     final h = seconds ~/ 3600;
-    return h > 0 ? '$h:${(seconds % 3600 ~/ 60).toString().padLeft(2, '0')}:$s' : '$m:$s';
+    return h > 0
+        ? '$h:${(seconds % 3600 ~/ 60).toString().padLeft(2, '0')}:$s'
+        : '$m:$s';
   }
 
   @override
@@ -54,10 +57,27 @@ class AndroidEngine extends VideoEngine {
 
   @override
   Future<Map<String, dynamic>> fetchInfoJson(String url) async {
+    if (BilibiliLiveService.isBilibiliLiveUrl(url)) {
+      try {
+        return await BilibiliLiveService.fetchLiveInfoJson(
+          url,
+          cookieHeader: settings.effectiveBiliCookieHeader,
+          proxy: settings.proxy,
+        );
+      } catch (e) {
+        final msg = e.toString();
+        if (msg.contains('未开播')) {
+          throw EngineException('该主播当前未开播，无法录制直播。');
+        }
+      }
+    }
+
     try {
+      final cookiesPath = await settings.ensureEffectiveCookiesFile();
       final out = await _channel.invokeMethod<String>('fetchInfo', {
         'url': url,
         'proxy': settings.proxy,
+        'cookiesPath': cookiesPath,
       });
       final json = jsonDecode(out ?? '');
       if (json is! Map<String, dynamic>) {
@@ -76,6 +96,7 @@ class AndroidEngine extends VideoEngine {
   Future<void> download(DownloadSpec spec, EngineOutputCallback onOutput) async {
     _listeners[spec.taskId] = onOutput;
     try {
+      final cookiesPath = await settings.ensureEffectiveCookiesFile();
       await _channel.invokeMethod('download', {
         'taskId': spec.taskId,
         'url': spec.url,
@@ -84,6 +105,11 @@ class AndroidEngine extends VideoEngine {
         'withSubtitles': spec.withSubtitles,
         'outputDir': spec.outputDir,
         'proxy': settings.proxy,
+        'cookiesPath': cookiesPath,
+        'isLive': spec.isLive,
+        'liveFromStart': spec.liveFromStart,
+        'maxDurationSeconds': spec.maxDurationSeconds,
+        'title': spec.title ?? 'live_recording',
       });
     } on PlatformException catch (e) {
       throw EngineException(_lastLine(e.message));
@@ -95,6 +121,23 @@ class AndroidEngine extends VideoEngine {
   @override
   Future<void> cancel(String taskId) async {
     await _channel.invokeMethod('cancel', {'taskId': taskId});
+  }
+
+  @override
+  Future<void> stopAndSave(String taskId) async {
+    await _channel.invokeMethod('stopAndSave', {'taskId': taskId});
+  }
+
+  @override
+  Future<String?> splitCheckpoint(String taskId) async {
+    try {
+      return await _channel.invokeMethod<String>(
+        'splitCheckpoint',
+        {'taskId': taskId},
+      );
+    } on PlatformException {
+      return null;
+    }
   }
 
   @override

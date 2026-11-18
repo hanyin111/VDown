@@ -13,10 +13,12 @@
 - 粘贴链接一键解析，展示封面 / 标题 / UP 主 / 时长
 - 按分辨率选择清晰度（4K / 1080P60 / 720P …），或仅提取 MP3 音频
 - 高清流自动"视频 + 最佳音轨"合并为 MP4（B 站、YouTube 高清均为分离流）
+- **YouTube / Bilibili 直播实时录制与断点保存**：采用 FFmpeg fragmented MP4 实时录制 + `faststart` 重封装，支持实时显示录制时长/体积/码率、YouTube DVR「从直播开头录制」、限时录制、任意时间戳「断点保存片段」与「停止并保存」立即生成完整可播放视频
 - 下载队列：实时进度 / 速度 / 剩余时间，支持取消、重试、断点续传
 - 代理设置（国内访问 YouTube / X 必需）
 - 浏览器 Cookie 读取（B 站大会员画质，桌面端）
 - **Android 端内置引擎**（yt-dlp + Python 运行时 + FFmpeg 随 APK 打包），安装即用，零配置
+- **HarmonyOS 7 原生版**（`harmonyos/`，ArkTS API 26）：适配鸿蒙 7 原生沉浸玻璃材质（`uiMaterial.ImmersiveMaterial` / `systemMaterial` + `HdsTabs` 悬浮玻璃底栏 + `HdsSnackBar`），直连 B 站直播（HLS fMP4 / HTTP-FLV 含解码序列头分段）/ B 站点播 / HLS / FLV / MP4，并支持通过 `tools/vdown_bridge.py` 协同录制 YouTube 直播与 1800+ 站点
 - 内置 HarmonyOS Sans SC 字体，全平台渲染一致
 - 浅色 / 深色主题，桌面端 NavigationRail、移动端底部导航自适应布局
 
@@ -24,8 +26,9 @@
 
 | 平台 | 引擎方式 | 状态 |
 |------|----------|------|
-| Windows / macOS / Linux | 调用本机 yt-dlp 进程 | ✅ 全功能 |
-| Android（5 个 ABI） | 内置 [youtubedl-android](https://github.com/JunkFood02/youtubedl-android)，平台通道桥接 | ✅ 全功能，开箱即用 |
+| Windows / macOS / Linux | 调用本机 yt-dlp + FFmpeg 进程 | ✅ 全功能（含直播实时录制与断点保存） |
+| Android（5 个 ABI） | 内置 [youtubedl-android](https://github.com/JunkFood02/youtubedl-android)，平台通道桥接 | ✅ 全功能（含直播实时录制与断点保存） |
+| HarmonyOS 7（API 26） | 原生 ArkTS 直播/点播引擎 + 可选 `tools/vdown_bridge.py` 协同服务 | ✅ 原生玻璃 UI + B站/直链直录 + 协同解锁 YouTube 直播 |
 | iOS | 系统禁止子进程 | ❌ 需服务端方案 |
 
 ## 下载安装
@@ -66,6 +69,11 @@ flutter build macos            # macOS（需在 macOS 上，先装 Xcode）
 
 > Flutter 不支持跨平台编译（Linux 版必须在 Linux 上构建，macOS 同理）。
 > 本仓库已配置 GitHub Actions：推送 `v*` 标签会自动在云端构建 Windows / Linux / macOS 三端并附加到对应 Release。
+> HarmonyOS 7 原生版源码位于 `harmonyos/`，可使用 DevEco Studio 26.0+ 打开或通过 `hvigorw assembleHap` 构建；如需在鸿蒙端录制 YouTube 直播，可在电脑运行：
+> ```bash
+> python tools/vdown_bridge.py --port 8765
+> ```
+> 并在鸿蒙 App 的「设置 → 协同录制服务地址」填入 `http://<电脑局域网IP>:8765`。
 
 ## 架构
 
@@ -77,10 +85,10 @@ lib/
 ├── services/
 │   ├── engine/
 │   │   ├── video_engine.dart       # 引擎抽象接口 + 平台工厂
-│   │   ├── desktop_engine.dart     # 桌面端：yt-dlp 子进程
-│   │   └── android_engine.dart     # Android：MethodChannel 桥接内置引擎
+│   │   ├── desktop_engine.dart     # 桌面端：yt-dlp / FFmpeg fMP4 直播断点录制
+│   │   └── android_engine.dart     # Android：MethodChannel 桥接内置引擎与直播分段控制
 │   ├── ytdlp_service.dart          # 面向 UI 的解析门面
-│   ├── download_manager.dart       # 下载队列、进度解析、并发调度
+│   ├── download_manager.dart       # 下载队列、直播进度解析、断点分段/停止保存调度
 │   └── settings_service.dart       # 设置持久化
 ├── ui/
 │   ├── home_shell.dart             # 自适应导航（Rail / BottomBar）
@@ -88,6 +96,8 @@ lib/
 └── utils/format_utils.dart
 
 android/.../MainActivity.kt         # youtubedl-android 原生桥接层
+harmonyos/                          # HarmonyOS 7 (API 26) 原生玻璃 UI + ArkTS 下载/直播录制工程
+tools/vdown_bridge.py               # 面向 HarmonyOS / 局域网客户端的 yt-dlp + FFmpeg 协同录制服务
 ```
 
 ## 致谢

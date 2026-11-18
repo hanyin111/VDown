@@ -6,7 +6,7 @@ import '../models/download_task.dart';
 import 'engine/video_engine.dart';
 import 'settings_service.dart';
 
-/// 下载队列：通过 [VideoEngine] 执行下载、解析进度输出、控制并发。
+/// 下载队列：通过 [VideoEngine] 执行下载与直播实时录制、解析进度输出、控制并发。
 class DownloadManager extends ChangeNotifier {
   final SettingsService settings;
   final VideoEngine engine;
@@ -25,7 +25,10 @@ class DownloadManager extends ChangeNotifier {
 
   int get _runningCount => tasks
       .where((t) =>
-          t.status == TaskStatus.running || t.status == TaskStatus.merging)
+          t.status == TaskStatus.running ||
+          t.status == TaskStatus.recording ||
+          t.status == TaskStatus.merging ||
+          t.status == TaskStatus.finalizing)
       .length;
 
   void enqueue(DownloadTask task) {
@@ -45,7 +48,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> _start(DownloadTask task) async {
-    task.status = TaskStatus.running;
+    task.status = task.isLive ? TaskStatus.recording : TaskStatus.running;
     task.errorMessage = null;
     notifyListeners();
 
@@ -59,6 +62,10 @@ class DownloadManager extends ChangeNotifier {
           audioOnly: task.audioOnly,
           withSubtitles: task.withSubtitles,
           outputDir: task.outputDir,
+          isLive: task.isLive,
+          liveFromStart: task.liveFromStart,
+          maxDurationSeconds: task.maxDurationSeconds,
+          title: task.title,
         ),
         (progress, eta, line) => _handleOutput(task, progress, eta, line),
       );
@@ -80,6 +87,68 @@ class DownloadManager extends ChangeNotifier {
 
   void _handleOutput(
       DownloadTask task, double? progress, String? eta, String line) {
+    if (line.startsWith('[live-progress] ')) {
+      final body = line.substring('[live-progress] '.length);
+      for (final part in body.split('|')) {
+        final eq = part.indexOf('=');
+        if (eq <= 0) continue;
+        final k = part.substring(0, eq);
+        final v = part.substring(eq + 1);
+        switch (k) {
+          case 'time':
+            if (v.isNotEmpty) task.recordedDuration = v;
+            break;
+          case 'size':
+            if (v.isNotEmpty) task.recordedSize = v;
+            break;
+          case 'bitrate':
+            task.bitrate = v.isEmpty ? null : v;
+            break;
+          case 'speed':
+            task.speed = v.isEmpty ? null : v;
+            break;
+          case 'seg':
+            task.segmentIndex = int.tryParse(v) ?? task.segmentIndex;
+            break;
+        }
+      }
+      if (task.status == TaskStatus.finalizing) {
+        task.status = TaskStatus.recording;
+      }
+      notifyListeners();
+      return;
+    }
+
+    if (line == '[live-finalizing]') {
+      task.status = TaskStatus.finalizing;
+      notifyListeners();
+      return;
+    }
+
+    if (line.startsWith('[live-segment] ')) {
+      final path = line.substring('[live-segment] '.length).trim();
+      if (path.isNotEmpty) {
+        if (!task.savedFiles.contains(path)) {
+          task.savedFiles.add(path);
+        }
+        task.outputFile = path;
+      }
+      notifyListeners();
+      return;
+    }
+
+    if (line.startsWith('[live-saved] ')) {
+      final path = line.substring('[live-saved] '.length).trim();
+      if (path.isNotEmpty) {
+        if (!task.savedFiles.contains(path)) {
+          task.savedFiles.add(path);
+        }
+        task.outputFile = path;
+      }
+      notifyListeners();
+      return;
+    }
+
     final match = _progressRe.firstMatch(line);
     if (match != null) {
       task.progress = (double.tryParse(match.group(1) ?? '') ?? 0) / 100;
@@ -110,6 +179,28 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 
+  /// 停止直播录制并将已录制内容保存为完整可播放的视频。
+  Future<void> stopAndSave(DownloadTask task) async {
+    if (!task.isLive) {
+      cancel(task);
+      return;
+    }
+    if (task.status == TaskStatus.queued) {
+      cancel(task);
+      return;
+    }
+    if (task.status != TaskStatus.recording) return;
+    task.status = TaskStatus.finalizing;
+    notifyListeners();
+    await engine.stopAndSave(task.id);
+  }
+
+  /// 直播录制中：在当前时间戳断点保存一段可播放视频并继续录制。
+  Future<String?> splitCheckpoint(DownloadTask task) async {
+    if (!task.isLive || task.status != TaskStatus.recording) return null;
+    return engine.splitCheckpoint(task.id);
+  }
+
   void cancel(DownloadTask task) {
     final wasQueued = task.status == TaskStatus.queued;
     task.status = TaskStatus.canceled;
@@ -121,6 +212,13 @@ class DownloadManager extends ChangeNotifier {
     if (task.isActive) return;
     task.status = TaskStatus.queued;
     task.progress = 0;
+    task.recordedDuration = null;
+    task.recordedSize = null;
+    task.bitrate = null;
+    task.speed = null;
+    task.eta = null;
+    task.segmentIndex = 1;
+    task.savedFiles.clear();
     task.errorMessage = null;
     notifyListeners();
     _pump();

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/engine/video_engine.dart';
 import '../../services/settings_service.dart';
+import '../widgets/bili_login_dialog.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -103,11 +104,74 @@ class SettingsPage extends StatelessWidget {
               onSave: settings.setProxy,
             ),
           ),
+          ListTile(
+            leading: const Icon(Icons.qr_code_scanner_rounded),
+            title: const Text('B 站账号登录（推荐）'),
+            subtitle: Text(
+              settings.hasBiliAuth
+                  ? (settings.biliUserName.isNotEmpty
+                      ? '已登录：${settings.biliUserName}（可抓 1080P 原画 / 蓝光 / 2K）'
+                      : '已配置 B 站凭据（可抓 1080P 原画 / 蓝光 / 2K）')
+                  : '未登录（B 站直播未登录最高仅返回 720P，扫码即可解锁 1080P+）',
+            ),
+            isThreeLine: !settings.hasBiliAuth,
+            trailing: settings.hasBiliAuth
+                ? TextButton(
+                    onPressed: settings.clearBiliAuth,
+                    child: const Text('退出'),
+                  )
+                : FilledButton.tonal(
+                    onPressed: () => BiliLoginDialog.show(context),
+                    child: const Text('扫码登录'),
+                  ),
+            onTap: () => BiliLoginDialog.show(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_rounded),
+            title: const Text('cookies.txt 文件（通用站点）'),
+            subtitle: Text(
+              settings.cookiesFilePath.isEmpty
+                  ? '未选择（适用于 YouTube / B 站 / X 等站点绕过浏览器加密限制）'
+                  : settings.cookiesFilePath,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: settings.cookiesFilePath.isNotEmpty
+                ? IconButton(
+                    tooltip: '清除',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => settings.setCookiesFilePath(''),
+                  )
+                : const Icon(Icons.chevron_right_rounded),
+            onTap: () async {
+              if (!Platform.isAndroid) {
+                const typeGroup = XTypeGroup(
+                  label: 'Netscape Cookies',
+                  extensions: ['txt'],
+                );
+                final file = await openFile(acceptedTypeGroups: [typeGroup]);
+                if (file != null) {
+                  await settings.setCookiesFilePath(file.path);
+                }
+              } else {
+                await _editText(
+                  context,
+                  title: 'cookies.txt 文件路径',
+                  hint: '/storage/emulated/0/Download/cookies.txt',
+                  initial: settings.cookiesFilePath,
+                  onSave: settings.setCookiesFilePath,
+                );
+              }
+            },
+          ),
           if (!Platform.isAndroid)
             ListTile(
               leading: const Icon(Icons.cookie_rounded),
               title: const Text('浏览器 Cookie'),
-              subtitle: const Text('下载 B 站大会员画质 / 会员内容时需要'),
+              subtitle: const Text(
+                'Chrome/Edge 新版在 Windows 上受系统加密限制可能失败，B 站建议用上方扫码登录或 cookies.txt',
+              ),
+              isThreeLine: true,
               trailing: DropdownButton<String>(
                 value: settings.cookiesBrowser.isEmpty
                     ? ''

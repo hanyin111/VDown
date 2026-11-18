@@ -1,7 +1,7 @@
-﻿name: vdownload
+name: vdownload
 description: "VDown — 全平台视频下载器，支持 YouTube / Bilibili / X 等 1800+ 网站的全分辨率下载。"
 publish_to: "none"
-version: 0.1.7+8
+version: 0.2.0+9
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -14,6 +14,7 @@ dependencies:
   path_provider: ^2.1.4
   file_selector: ^1.0.3
   url_launcher: ^6.3.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
